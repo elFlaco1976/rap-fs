@@ -2,13 +2,21 @@ import React, { useState, useEffect } from 'react';
 import MatchInfo from '../../types/MatchInfo';
 import MatchStatus from '../../types/MatchStatus';
 import getWords from '../../utils/words';
-import { Button, ButtonGroup } from 'react-bootstrap';
+import { Button } from 'react-bootstrap';
 import './style.scss';
 
 const Match: React.FC = () => {
   const initialMatchInfo: MatchInfo = {
     countdown: 60,
     matchStatus: MatchStatus.notStarted,
+    randomWords: [],
+    currentWordIndex: 0,
+    wordDuration: 5,
+  };
+
+  const finalMatchInfo: MatchInfo = {
+    countdown: 60,
+    matchStatus: MatchStatus.finished,
     randomWords: [],
     currentWordIndex: 0,
     wordDuration: 5,
@@ -28,23 +36,30 @@ const Match: React.FC = () => {
     }
   };
 
+  //On component did mount. Update state with random words
   useEffect(() => {
     setGameStatus({ ...gameStatus, randomWords: getWords() });
   }, []);
 
+  const updateCountdown = (interval: NodeJS.Timeout | null) => {
+    setGameStatus((prevState) => {
+      const newCountDown = prevState.countdown - 1;
+      if (newCountDown === 0 && interval) {
+        clearInterval(interval);
+        return finalMatchInfo;
+      } else if (newCountDown % gameStatus.wordDuration === 0) {
+        return { ...prevState, countdown: newCountDown, currentWordIndex: prevState.currentWordIndex + 1 };
+      } else {
+        return { ...prevState, countdown: newCountDown };
+      }
+    });
+  };
+
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
-    console.log('useEffect!!!');
     if (gameStatus.matchStatus === MatchStatus.started) {
       interval = setTimeout(() => {
-        setGameStatus((prevState) => {
-          const newCountDown = prevState.countdown - 1;
-          if (newCountDown % gameStatus.wordDuration === 0) {
-            return { ...prevState, countdown: newCountDown, currentWordIndex: prevState.currentWordIndex + 1 };
-          } else {
-            return { ...prevState, countdown: newCountDown };
-          }
-        });
+        updateCountdown(interval);
       }, 1000);
     } else if (
       (gameStatus.matchStatus === MatchStatus.finished || gameStatus.matchStatus === MatchStatus.pause) &&
@@ -52,6 +67,8 @@ const Match: React.FC = () => {
     ) {
       clearInterval(interval);
     }
+
+    //Clear interval when unmount
     if (interval) {
       return () => clearInterval(interval as NodeJS.Timeout);
     }
@@ -78,6 +95,12 @@ const Match: React.FC = () => {
           Match Paused!
           <Button onClick={onStart}>Re-start</Button>
           <p>{gameStatus.countdown}</p>
+        </div>
+      )}
+      {gameStatus.matchStatus === MatchStatus.finished && (
+        <div>
+          Match finished!
+          <Button onClick={onStart}>Start new match</Button>
         </div>
       )}
     </>
